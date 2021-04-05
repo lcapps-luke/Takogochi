@@ -11,6 +11,9 @@ class Tako extends FlxSpriteGroup
 
 	private var squishTime:Float = 0;
 
+	private var patCount:Int = 0;
+	private var patCooldown:Float = 0;
+
 	public function new(sx:Float, sy:Float)
 	{
 		super();
@@ -48,6 +51,32 @@ class Tako extends FlxSpriteGroup
 		if (mesh.getVerticalStretch() > 0.8 && mesh.lastEmote == TakoMesh.ANI_BONK)
 		{
 			mesh.emote(TakoMesh.ANI_CONTENTED);
+		}
+
+		if (patCooldown > 0)
+		{
+			patCooldown -= elapsed;
+			if (patCooldown <= 0)
+			{
+				mesh.emote(TakoMesh.ANI_CONTENTED);
+			}
+		}
+	}
+
+	public function pat()
+	{
+		if (patCooldown > 0)
+		{
+			return;
+		}
+
+		patCount++;
+
+		if (patCount > 5)
+		{
+			patCooldown = 30;
+			patCount = 0;
+			mesh.emote(TakoMesh.ANI_HAPPY);
 		}
 	}
 }

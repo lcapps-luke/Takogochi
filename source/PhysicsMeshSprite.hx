@@ -291,4 +291,19 @@ class PhysicsMeshSprite extends FlxSprite
 
 		return n;
 	}
+
+	public function findNodesNear(pos:Vec2, distance:Float):Array<Body>
+	{
+		var res:Array<Body> = new Array<Body>();
+
+		for (b in bodies)
+		{
+			if (Vec2.distance(b.position, pos) < distance)
+			{
+				res.push(b);
+			}
+		}
+
+		return res;
+	}
 }

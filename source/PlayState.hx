@@ -13,8 +13,13 @@ import nape.phys.Material;
 
 class PlayState extends FlxState
 {
-	private var holdNode:Body = null;
-	private var holdOffset:FlxPoint;
+	private static inline var TOUCH_RADIUS:Float = 20;
+	private static inline var GRAB_DISTANCE:Float = 100;
+	private static inline var MAX_PAT_TIME:Float = 0.5;
+
+	private var holdNodes:List<HoldNode>;
+	private var heldTako:Tako;
+	private var holdTime:Float = 0;
 
 	private var takoGroup:FlxTypedSpriteGroup<Tako>;
 	private var tako:Array<Tako>;
@@ -44,7 +49,7 @@ class PlayState extends FlxState
 			tako.push(t);
 		}
 
-		holdOffset = FlxPoint.get();
+		holdNodes = new List<HoldNode>();
 	}
 
 	override public function update(elapsed:Float)
@@ -53,44 +58,90 @@ class PlayState extends FlxState
 
 		if (FlxG.mouse.justPressed)
 		{
-			var mousePos = new Vec2(FlxG.mouse.x, FlxG.mouse.y);
-
-			var nd:Float = -1;
-			holdNode = null;
-			for (t in tako)
-			{
-				var b = t.mesh.findNearestNode(mousePos);
-				var d = Vec2.distance(b.position, mousePos);
-				if (holdNode == null || d < nd)
-				{
-					holdNode = b;
-					nd = d;
-				}
-			}
-
-			holdOffset.set(holdNode.position.x - mousePos.x, holdNode.position.y - mousePos.y);
+			grab();
 		}
 
 		if (FlxG.mouse.justReleased)
 		{
-			holdNode = null;
+			releaseHold();
 		}
 
-		if (holdNode != null)
+		if (!holdNodes.isEmpty())
 		{
-			var holdPoint = FlxPoint.get();
-			FlxG.mouse.getPosition().copyTo(holdPoint);
-			holdPoint.addPoint(holdOffset);
-
-			var vx = (holdPoint.x - holdNode.position.x) * 50;
-			var vy = (holdPoint.y - holdNode.position.y) * 50;
-
-			FlxDestroyUtil.put(holdPoint);
-
-			holdNode.velocity.setxy(vx, vy);
+			updateHold(elapsed);
 		}
 
 		takoGroup.sort(takoOrder, FlxSort.DESCENDING);
+	}
+
+	private inline function grab()
+	{
+		var mousePos = Vec2.get(FlxG.mouse.x, FlxG.mouse.y);
+
+		clearHoldNodes();
+
+		for (t in tako)
+		{
+			for (b in t.mesh.findNodesNear(mousePos, TOUCH_RADIUS))
+			{
+				holdNodes.add({
+					body: b,
+					offset: FlxPoint.get(b.position.x - mousePos.x, b.position.y - mousePos.y)
+				});
+			}
+
+			if (!holdNodes.isEmpty())
+			{
+				heldTako = t;
+				holdTime = 0;
+				break;
+			}
+		}
+
+		mousePos.dispose();
+	}
+
+	private inline function releaseHold()
+	{
+		if (holdTime < MAX_PAT_TIME)
+		{
+			heldTako.pat();
+
+			for (n in holdNodes)
+			{
+				n.body.velocity.addeq(Vec2.get(0, 100, true));
+			}
+		}
+
+		clearHoldNodes();
+	}
+
+	private inline function clearHoldNodes()
+	{
+		for (n in holdNodes)
+		{
+			FlxDestroyUtil.put(n.offset);
+		}
+		holdNodes.clear();
+	}
+
+	private inline function updateHold(elapsed:Float)
+	{
+		holdTime += elapsed;
+		var holdPoint = FlxPoint.get();
+
+		for (n in holdNodes)
+		{
+			FlxG.mouse.getPosition().copyTo(holdPoint);
+			holdPoint.addPoint(n.offset);
+
+			var vx = (holdPoint.x - n.body.position.x) * 50;
+			var vy = (holdPoint.y - n.body.position.y) * 50;
+
+			n.body.velocity.setxy(vx, vy);
+		}
+
+		FlxDestroyUtil.put(holdPoint);
 	}
 
 	private inline function takoOrder(order:Int, a:Tako, b:Tako)
